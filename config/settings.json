@@ -1,0 +1,41 @@
+{
+  "project_name": "Regime-Aware Tactical Allocation across Taiwan-Listed ETFs",
+
+  "etf_universe": {
+    "0050.TW":     {"role": "core_equity",      "label": "元大台灣50",    "exchange": "TWSE"},
+    "00713.TW":    {"role": "defensive_equity",  "label": "元大高息低波",  "exchange": "TWSE"},
+    "00679B.TWO":  {"role": "long_treasury",     "label": "元大美債20年",  "exchange": "TPEx"},
+    "00635U.TW":   {"role": "gold",              "label": "元大S&P黃金",   "exchange": "TWSE"}
+  },
+
+  "_ticker_notes": [
+    "00679B is listed on the Taipei Exchange (TPEx / 櫃買中心), NOT TWSE main board.",
+    "Yahoo Finance uses .TWO for TPEx tickers and .TW for TWSE tickers.",
+    "Using the wrong suffix does not raise an error -- it silently returns empty data.",
+    "00635U is a futures-based gold ETF with ~1.5-2% annual roll cost embedded in price.",
+    "00679B is an UNHEDGED USD-denominated bond ETF -- TWD/USD moves affect its return."
+  ],
+
+  "download": {
+    "start_date": "2017-01-01",
+    "end_date": null,
+    "_start_note": "Set earlier than any ETF listing date; the audit will find actual common start."
+  },
+
+  "backtest": {
+    "rebalance_frequency": "monthly",
+    "execution_delay_days": 1,
+    "cost_scenarios_bps": {
+      "low": 10,
+      "base": 20,
+      "conservative": 40
+    },
+    "_cost_note": "ETF securities transaction tax is 0.1% (sell side), broker commission ~0.1425% (negotiable). Total round-trip ~25-35 bps before market impact."
+  },
+
+  "cash_proxy": {
+    "method": "fixed_annual_rate",
+    "annual_rate_pct": 1.5,
+    "_note": "Approximate Taiwan 1-year time deposit rate. Replace with actual rate series if available."
+  }
+}
