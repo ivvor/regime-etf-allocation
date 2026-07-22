@@ -117,6 +117,70 @@ def test_execution_after_signal(prices):
 
 
 # ---------------------------------------------------------------------------
+# 3b. New weights must not earn a return on the execution day itself
+# ---------------------------------------------------------------------------
+
+def test_new_weights_dont_earn_execution_day_return():
+    """The new position must not capture the return realized on the
+    execution day itself -- that return happened before the trade (which
+    occurs at that day's close), so it must be attributed to the OLD weights.
+
+    Regression test for a bug where run_backtest() applied the new weights
+    BEFORE computing the execution day's return, letting the new position
+    capture a return it could not actually have earned.
+    """
+    from src.backtest import run_backtest
+
+    days = pd.bdate_range("2020-01-01", periods=10)
+    # Asset A jumps 50% exactly between the signal date's close and the
+    # execution date's close, then stays flat.
+    prices = pd.DataFrame(
+        {"A": [100, 100, 100, 100, 100, 150, 150, 150, 150, 150]}, index=days,
+    )
+    signal_dates = pd.DatetimeIndex([days[4]])
+    weights = pd.DataFrame({"A": [1.0]}, index=signal_dates)
+
+    res = run_backtest(prices, weights, cost_bps=0, cash_rate_annual=0.0, name="t")
+
+    exec_date = days[5]
+    assert abs(res.daily_returns.loc[exec_date]) < 1e-9, (
+        f"Execution day return is {res.daily_returns.loc[exec_date]}, expected ~0. "
+        f"The new position appears to have captured a return it could not "
+        f"have earned before the trade executed."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3c. Turnover must not double-count the cash leg of a rebalance
+# ---------------------------------------------------------------------------
+
+def test_turnover_no_cash_double_count():
+    """Turnover should equal the sum of absolute changes in risk-asset
+    weights only. Cash is the residual (1 - sum of weights), so its change
+    is already implied and must not be added again.
+
+    Regression test for a bug where a rebalance from 50% cash / 50% asset
+    to 100% asset was reported as turnover=1.0 (double-counted) instead of
+    the correct 0.5 (only half the portfolio was actually traded).
+    """
+    from src.backtest import run_backtest
+
+    days = pd.bdate_range("2020-01-01", periods=10)
+    prices = pd.DataFrame({"A": [100.0] * 10}, index=days)
+    signal_dates = pd.DatetimeIndex([days[0], days[4]])
+    # First rebalance: 100% cash -> 50% A. Second: 50% A -> 100% A.
+    weights = pd.DataFrame({"A": [0.5, 1.0]}, index=signal_dates)
+
+    res = run_backtest(prices, weights, cost_bps=100, cash_rate_annual=0.0, name="t")
+
+    for exec_date, expected in [(days[1], 0.5), (days[5], 0.5)]:
+        actual = res.turnover.loc[exec_date]
+        assert abs(actual - expected) < 1e-9, (
+            f"Turnover at {exec_date.date()} is {actual}, expected {expected}."
+        )
+
+
+# ---------------------------------------------------------------------------
 # 4. Weights at signal date T are unchanged by future data
 # ---------------------------------------------------------------------------
 
